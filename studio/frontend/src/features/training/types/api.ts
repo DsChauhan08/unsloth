@@ -42,6 +42,9 @@ export interface TrainingStartRequest {
   use_rslora: boolean;
   use_loftq: boolean;
   train_on_completions: boolean;
+  kaggle_timebomb_hours: number | null;
+  kaggle_auto_vram: boolean;
+  kaggle_ghost_cache: boolean;
   finetune_vision_layers: boolean;
   finetune_language_layers: boolean;
   finetune_attention_modules: boolean;

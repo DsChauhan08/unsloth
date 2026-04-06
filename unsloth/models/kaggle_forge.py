@@ -5,8 +5,6 @@ from __future__ import annotations
 import os
 from typing import Dict, Mapping, Optional
 
-import torch
-
 
 def _is_env_flag_enabled(name: str, env: Optional[Mapping[str, str]] = None) -> bool:
     """Return True if an environment flag is set to 1."""
@@ -14,36 +12,46 @@ def _is_env_flag_enabled(name: str, env: Optional[Mapping[str, str]] = None) -> 
     return env_map.get(name, "0") == "1"
 
 
-def should_force_gemma4_float32(
-    model_types_all: str,
-    requested_dtype: torch.dtype,
-    supports_bfloat16: bool,
-    env: Optional[Mapping[str, str]] = None,
-) -> bool:
-    """[KAGGLE FORGE] Decide if Gemma4 should keep legacy float32 fallback."""
-    if "gemma4" not in model_types_all:
-        return False
-    if requested_dtype != torch.float16:
-        return False
-    if supports_bfloat16:
-        return False
-    return not _is_env_flag_enabled("UNSLOTH_FORCE_FP16", env=env)
+def _env_str(name: str, env: Optional[Mapping[str, str]] = None) -> str:
+    env_map = os.environ if env is None else env
+    return env_map.get(name, "").strip()
 
 
-def should_preserve_gemma4_fp16(
-    model_types_all: str,
-    requested_dtype: torch.dtype,
-    supports_bfloat16: bool,
-    env: Optional[Mapping[str, str]] = None,
-) -> bool:
-    """[KAGGLE FORGE] Decide if Gemma4 should remain in float16 on T4-class GPUs."""
-    if "gemma4" not in model_types_all:
-        return False
-    if requested_dtype != torch.float16:
-        return False
-    if supports_bfloat16:
-        return False
-    return _is_env_flag_enabled("UNSLOTH_FORCE_FP16", env=env)
+def _env_float(name: str, env: Optional[Mapping[str, str]] = None) -> Optional[float]:
+    value = _env_str(name, env=env)
+    if value == "":
+        return None
+    try:
+        parsed = float(value)
+    except Exception:
+        return None
+    return parsed if parsed > 0 else None
+
+
+def kaggle_timebomb_hours(env: Optional[Mapping[str, str]] = None) -> Optional[float]:
+    """[KAGGLE FORGE] Return graceful-stop wallclock limit in hours.
+
+    Enabled via: UNSLOTH_KAGGLE_TIMEBOMB=<hours>
+    """
+    return _env_float("UNSLOTH_KAGGLE_TIMEBOMB", env=env)
+
+
+def kaggle_auto_vram_enabled(env: Optional[Mapping[str, str]] = None) -> bool:
+    """[KAGGLE FORGE] Return True when OOM fallback sweeper is enabled."""
+    return _is_env_flag_enabled("UNSLOTH_AUTO_VRAM", env=env)
+
+
+def kaggle_ghost_cache_enabled(env: Optional[Mapping[str, str]] = None) -> bool:
+    """[KAGGLE FORGE] Return True when dataset ghost cache is enabled."""
+    return _is_env_flag_enabled("UNSLOTH_GHOST_CACHE", env=env)
+
+
+def kaggle_ghost_cache_dir(env: Optional[Mapping[str, str]] = None) -> str:
+    """[KAGGLE FORGE] Resolve ghost cache root directory."""
+    custom_dir = _env_str("UNSLOTH_GHOST_CACHE_DIR", env=env)
+    if custom_dir:
+        return custom_dir
+    return "/kaggle/working/.ghost_cache"
 
 
 def build_kaggle_t4x2_device_map(

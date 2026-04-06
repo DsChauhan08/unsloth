@@ -56,6 +56,9 @@ export interface TrainingConfigState {
   evalSteps: number;
   packing: boolean;
   trainOnCompletions: boolean;
+  kaggleTimebombHours: number;
+  kaggleAutoVram: boolean;
+  kaggleGhostCache: boolean;
   gradientCheckpointing: GradientCheckpointing;
   randomSeed: number;
   enableWandb: boolean;
@@ -130,6 +133,9 @@ export interface TrainingConfigActions {
   setEvalSteps: (value: number) => void;
   setPacking: (value: boolean) => void;
   setTrainOnCompletions: (value: boolean) => void;
+  setKaggleTimebombHours: (value: number) => void;
+  setKaggleAutoVram: (value: boolean) => void;
+  setKaggleGhostCache: (value: boolean) => void;
   setGradientCheckpointing: (value: GradientCheckpointing) => void;
   setRandomSeed: (value: number) => void;
   setEnableWandb: (value: boolean) => void;

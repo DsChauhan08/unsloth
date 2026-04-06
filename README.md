@@ -136,15 +136,7 @@ Read our [guide](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide). Ad
 
 The following options are **strictly opt-in** and disabled by default. They are intended for constrained Kaggle environments (for example, 2x T4 GPUs with 15GB VRAM each).
 
-### 1) `UNSLOTH_FORCE_FP16=1`
-
-Enables a Gemma4 precision override that bypasses the default float32 safety upcast on non-bfloat16 hardware.
-
-- Default behavior (unset): Gemma4 float16 requests are upcasted to float32 for stability.
-- Forge behavior (`=1`): keep Gemma4 in float16 to save VRAM.
-- Tradeoff: increased risk of instability / NaN gradients.
-
-### 2) `UNSLOTH_CLOUD_SYNC_REPO=<hf-user>/<repo>`
+### 1) `UNSLOTH_CLOUD_SYNC_REPO=<hf-user>/<repo>`
 
 Automatically enables an asynchronous trainer callback that uploads newly saved checkpoints to your Hugging Face Hub repo during training.
 
@@ -152,7 +144,7 @@ Automatically enables an asynchronous trainer callback that uploads newly saved 
 - Upload triggers on each save event.
 - Keeps local checkpoint flow unchanged while adding cloud backup.
 
-### 3) `UNSLOTH_KAGGLE_MULTI_GPU=1`
+### 2) `UNSLOTH_KAGGLE_MULTI_GPU=1`
 
 Enables a hard-routed 2-GPU layer split for model loading:
 
@@ -164,7 +156,6 @@ This override is applied only when two CUDA GPUs are available.
 ### Example
 
 ```bash
-export UNSLOTH_FORCE_FP16=1
 export UNSLOTH_CLOUD_SYNC_REPO="your-hf-username/your-checkpoint-repo"
 export UNSLOTH_KAGGLE_MULTI_GPU=1
 ```

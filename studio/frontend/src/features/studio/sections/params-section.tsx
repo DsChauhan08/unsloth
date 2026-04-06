@@ -917,6 +917,52 @@ export function ParamsSection(): ReactElement {
                       </label>
                     </div>
                   )}
+
+                  <div className="h-px bg-border/60 my-1" />
+
+                  <Row
+                    label="Kaggle Timebomb (h)"
+                    tooltip="[KAGGLE FORGE] Gracefully stop and save after this many hours. 0 disables it."
+                  >
+                    <Input
+                      type="number"
+                      step="0.25"
+                      min="0"
+                      value={store.kaggleTimebombHours}
+                      onChange={(e) =>
+                        store.setKaggleTimebombHours(Number(e.target.value) || 0)
+                      }
+                      className="w-28 font-mono"
+                    />
+                  </Row>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="kaggleAutoVram"
+                      checked={store.kaggleAutoVram}
+                      onCheckedChange={(v) => store.setKaggleAutoVram(!!v)}
+                    />
+                    <label
+                      htmlFor="kaggleAutoVram"
+                      className="text-xs cursor-pointer text-muted-foreground"
+                    >
+                      Auto VRAM fallback (OOM sweeper)
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="kaggleGhostCache"
+                      checked={store.kaggleGhostCache}
+                      onCheckedChange={(v) => store.setKaggleGhostCache(!!v)}
+                    />
+                    <label
+                      htmlFor="kaggleGhostCache"
+                      className="text-xs cursor-pointer text-muted-foreground"
+                    >
+                      Ghost cache dataset preprocessing
+                    </label>
+                  </div>
                 </TabsContent>
               </Tabs>
             </CollapsibleContent>

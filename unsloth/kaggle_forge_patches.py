@@ -11,28 +11,13 @@ from typing import Optional
 import torch
 from transformers import AutoConfig
 
+from .kaggle_runtime import UnslothKaggleTimebombCallback
 from .kaggle_sync import attach_kaggle_cloud_sync_if_needed
-from .models._utils import is_bfloat16_supported
 from .models.kaggle_forge import (
     build_kaggle_t4x2_device_map,
-    should_force_gemma4_float32,
-    should_preserve_gemma4_fp16,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _resolve_dtype(dtype_value):
-    if isinstance(dtype_value, str) and hasattr(torch, dtype_value):
-        return getattr(torch, dtype_value)
-    return dtype_value
-
-
-def _effective_requested_dtype(dtype_value):
-    dtype_value = _resolve_dtype(dtype_value)
-    if dtype_value is None:
-        return torch.float16 if not is_bfloat16_supported() else torch.bfloat16
-    return dtype_value
 
 
 def _num_hidden_layers_from_config(model_config) -> Optional[int]:
@@ -54,24 +39,6 @@ def _num_hidden_layers_from_config(model_config) -> Optional[int]:
         if isinstance(value, int) and value > 0:
             return value
     return None
-
-
-def _is_gemma4_model(model_name, token=None, revision=None, trust_remote_code=False):
-    if isinstance(model_name, str):
-        lower_name = model_name.lower()
-        if "gemma-4" in lower_name or "gemma4" in lower_name:
-            return True
-
-    try:
-        config = AutoConfig.from_pretrained(
-            model_name,
-            token=token,
-            revision=revision,
-            trust_remote_code=trust_remote_code,
-        )
-        return getattr(config, "model_type", "") == "gemma4"
-    except Exception:
-        return False
 
 
 def _apply_kaggle_router_if_needed(bound_arguments):
@@ -114,53 +81,6 @@ def _apply_kaggle_router_if_needed(bound_arguments):
     )
 
 
-def _apply_gemma4_dtype_override_if_needed(bound_arguments):
-    requested_dtype = _effective_requested_dtype(bound_arguments.get("dtype"))
-    supports_bfloat16 = is_bfloat16_supported()
-
-    if requested_dtype != torch.float16:
-        return
-
-    model_name = bound_arguments.get("model_name")
-    token = bound_arguments.get("token")
-    revision = bound_arguments.get("revision")
-    trust_remote_code = bound_arguments.get("trust_remote_code", False)
-    is_gemma4 = _is_gemma4_model(
-        model_name=model_name,
-        token=token,
-        revision=revision,
-        trust_remote_code=trust_remote_code,
-    )
-    if not is_gemma4:
-        return
-
-    model_types_all = "gemma4," if is_gemma4 else ""
-    if should_preserve_gemma4_fp16(
-        model_types_all=model_types_all,
-        requested_dtype=requested_dtype,
-        supports_bfloat16=supports_bfloat16,
-    ):
-        logger.warning(
-            "[KAGGLE FORGE] ⚠️ UNSLOTH_FORCE_FP16 ACTIVE: Bypassing float32 upcast."
-        )
-        logger.warning(
-            "[KAGGLE FORGE] Model will load in FP16. Risk of NaN gradients acknowledged."
-        )
-        bound_arguments["dtype"] = torch.float16
-        return
-
-    if should_force_gemma4_float32(
-        model_types_all=model_types_all,
-        requested_dtype=requested_dtype,
-        supports_bfloat16=supports_bfloat16,
-    ):
-        logger.warning(
-            "Using float16 precision for gemma4 won't work! Using float32. "
-            "Set UNSLOTH_FORCE_FP16=1 to override."
-        )
-        bound_arguments["dtype"] = torch.float32
-
-
 def _wrap_from_pretrained(original_function):
     signature = inspect.signature(original_function)
 
@@ -169,8 +89,7 @@ def _wrap_from_pretrained(original_function):
         bound = signature.bind_partial(*args, **kwargs)
         bound.apply_defaults()
 
-        # [KAGGLE FORGE] Opt-in dtype override and hard router.
-        _apply_gemma4_dtype_override_if_needed(bound.arguments)
+        # [KAGGLE FORGE] Opt-in hard router.
         _apply_kaggle_router_if_needed(bound.arguments)
 
         return original_function(*bound.args, **bound.kwargs)
@@ -209,6 +128,13 @@ def _patch_sft_trainer_cloud_sync():
         original_init(self, *args, **kwargs)
         # [KAGGLE FORGE] Auto-register cloud sync callback when requested.
         attach_kaggle_cloud_sync_if_needed(self)
+        # [KAGGLE FORGE] Auto-register graceful wallclock stop callback.
+        if not any(
+            isinstance(cb, UnslothKaggleTimebombCallback) for cb in self.callbacks
+        ):
+            timebomb = UnslothKaggleTimebombCallback()
+            if timebomb.enabled:
+                self.add_callback(timebomb)
 
     SFTTrainer.__init__ = wrapped_init
     SFTTrainer._kaggle_forge_cloud_sync_wrapped = True

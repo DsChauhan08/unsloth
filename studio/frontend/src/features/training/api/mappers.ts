@@ -92,6 +92,10 @@ export function buildTrainingStartPayload(
     use_rslora: config.loraVariant === "rslora",
     use_loftq: config.loraVariant === "loftq",
     train_on_completions: isEmbedding ? false : config.trainOnCompletions,
+    kaggle_timebomb_hours:
+      config.kaggleTimebombHours > 0 ? config.kaggleTimebombHours : null,
+    kaggle_auto_vram: config.kaggleAutoVram,
+    kaggle_ghost_cache: config.kaggleGhostCache,
     finetune_vision_layers: config.finetuneVisionLayers,
     finetune_language_layers: config.finetuneLanguageLayers,
     finetune_attention_modules: config.finetuneAttentionModules,

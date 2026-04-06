@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import torch
 
 
 def _load_kaggle_forge_module():
@@ -17,48 +16,6 @@ def _load_kaggle_forge_module():
 
 
 kaggle_forge = _load_kaggle_forge_module()
-
-
-def test_force_float32_without_override_for_gemma4_float16():
-    with patch.dict(os.environ, {"UNSLOTH_FORCE_FP16": "0"}, clear=False):
-        assert kaggle_forge.should_force_gemma4_float32(
-            model_types_all="gemma4,",
-            requested_dtype=torch.float16,
-            supports_bfloat16=False,
-        )
-        assert not kaggle_forge.should_preserve_gemma4_fp16(
-            model_types_all="gemma4,",
-            requested_dtype=torch.float16,
-            supports_bfloat16=False,
-        )
-
-
-def test_preserve_fp16_with_override_for_gemma4_float16():
-    with patch.dict(os.environ, {"UNSLOTH_FORCE_FP16": "1"}, clear=False):
-        assert kaggle_forge.should_preserve_gemma4_fp16(
-            model_types_all="gemma4,",
-            requested_dtype=torch.float16,
-            supports_bfloat16=False,
-        )
-        assert not kaggle_forge.should_force_gemma4_float32(
-            model_types_all="gemma4,",
-            requested_dtype=torch.float16,
-            supports_bfloat16=False,
-        )
-
-
-def test_gemma4_helpers_are_noop_for_non_gemma4_or_non_float16():
-    with patch.dict(os.environ, {"UNSLOTH_FORCE_FP16": "1"}, clear=False):
-        assert not kaggle_forge.should_preserve_gemma4_fp16(
-            model_types_all="llama,",
-            requested_dtype=torch.float16,
-            supports_bfloat16=False,
-        )
-        assert not kaggle_forge.should_force_gemma4_float32(
-            model_types_all="gemma4,",
-            requested_dtype=torch.float32,
-            supports_bfloat16=False,
-        )
 
 
 def test_build_kaggle_t4x2_device_map_even_split():
@@ -84,3 +41,37 @@ def test_build_kaggle_t4x2_device_map_odd_split():
 def test_build_kaggle_t4x2_device_map_rejects_invalid_layer_count():
     with pytest.raises(ValueError):
         kaggle_forge.build_kaggle_t4x2_device_map(num_hidden_layers=0)
+
+
+def test_kaggle_timebomb_hours_parsing():
+    with patch.dict(os.environ, {"UNSLOTH_KAGGLE_TIMEBOMB": "2.5"}, clear=False):
+        assert kaggle_forge.kaggle_timebomb_hours() == pytest.approx(2.5)
+    with patch.dict(os.environ, {"UNSLOTH_KAGGLE_TIMEBOMB": "0"}, clear=False):
+        assert kaggle_forge.kaggle_timebomb_hours() is None
+    with patch.dict(
+        os.environ, {"UNSLOTH_KAGGLE_TIMEBOMB": "not-a-number"}, clear=False
+    ):
+        assert kaggle_forge.kaggle_timebomb_hours() is None
+
+
+def test_kaggle_auto_flags_and_cache_dir_defaults():
+    with patch.dict(
+        os.environ,
+        {
+            "UNSLOTH_AUTO_VRAM": "1",
+            "UNSLOTH_GHOST_CACHE": "1",
+        },
+        clear=False,
+    ):
+        assert kaggle_forge.kaggle_auto_vram_enabled()
+        assert kaggle_forge.kaggle_ghost_cache_enabled()
+        assert kaggle_forge.kaggle_ghost_cache_dir() == "/kaggle/working/.ghost_cache"
+
+    with patch.dict(
+        os.environ,
+        {
+            "UNSLOTH_GHOST_CACHE_DIR": "/tmp/custom-ghost",
+        },
+        clear=False,
+    ):
+        assert kaggle_forge.kaggle_ghost_cache_dir() == "/tmp/custom-ghost"

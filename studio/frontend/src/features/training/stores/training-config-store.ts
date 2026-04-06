@@ -585,6 +585,9 @@ export const useTrainingConfigStore = create<TrainingConfigStore>()(
           _trainOnCompletionsManuallySet = true;
           set({ trainOnCompletions });
         },
+        setKaggleTimebombHours: (kaggleTimebombHours) => set({ kaggleTimebombHours }),
+        setKaggleAutoVram: (kaggleAutoVram) => set({ kaggleAutoVram }),
+        setKaggleGhostCache: (kaggleGhostCache) => set({ kaggleGhostCache }),
         setGradientCheckpointing: (gradientCheckpointing) =>
           set({ gradientCheckpointing }),
         setRandomSeed: (randomSeed) => set({ randomSeed }),
@@ -629,7 +632,7 @@ export const useTrainingConfigStore = create<TrainingConfigStore>()(
     },
     {
       name: "unsloth_training_config_v1",
-      version: 9,
+      version: 10,
       migrate: (persisted, version) => {
         const s = persisted as Record<string, unknown>;
         if (version < 2 && s.datasetSubset == null && s.datasetConfig != null) {
@@ -664,6 +667,11 @@ export const useTrainingConfigStore = create<TrainingConfigStore>()(
           if (s.weightDecay === 0.01) {
             s.weightDecay = DEFAULT_HYPERPARAMS.weightDecay;
           }
+        }
+        if (version < 10) {
+          s.kaggleTimebombHours ??= 0;
+          s.kaggleAutoVram ??= false;
+          s.kaggleGhostCache ??= false;
         }
         return s as unknown as TrainingConfigStore;
       },
